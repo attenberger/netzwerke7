@@ -49,8 +49,8 @@ public class FinateAutomaton {
     transition[State.WAIT1.ordinal()] [Msg.STARTLAST.ordinal()] = corruptUnexpeted;
 		transition[State.WAIT1.ordinal()] [Msg.OK0.ordinal()] = repeatAck;
 		transition[State.WAIT1.ordinal()] [Msg.OK1.ordinal()] = proccedOk1;
-    transition[State.WAIT0.ordinal()] [Msg.OK0LAST.ordinal()] = corruptUnexpeted;
-    transition[State.WAIT0.ordinal()] [Msg.OK1LAST.ordinal()] = proccedOkLast;
+    transition[State.WAIT1.ordinal()] [Msg.OK0LAST.ordinal()] = corruptUnexpeted;
+    transition[State.WAIT1.ordinal()] [Msg.OK1LAST.ordinal()] = proccedOkLast;
 		transition[State.WAIT1.ordinal()] [Msg.CORRUPT.ordinal()] = corruptUnexpeted;
     transition[State.WAIT1.ordinal()] [Msg.DIFFERENTSENDER.ordinal()] = corruptUnexpeted;
 	}
@@ -58,6 +58,7 @@ public class FinateAutomaton {
 	public void processMsg(DatagramPacket receivedPacket) throws Exception{
 	  Package udpDataPackage = new Package(receivedPacket);
 	  Transition trans;
+	  
 	  if (!udpDataPackage.isOk()) {
 	    trans = transition[currentState.ordinal()][Msg.CORRUPT.ordinal()];
 	  }
@@ -176,8 +177,8 @@ public class FinateAutomaton {
     if (bytesCurrentTransmition == 0)
       System.out.println("No data transmitted.");
     else {
-      long transmitionDuration = (new Date().getTime() - lastTransmitionStart.getTime()) / 1000;
-      System.out.println("File transmitted. " + bytesCurrentTransmition + " Bytes in " + transmitionDuration + " = " + bytesCurrentTransmition / 1048576 / transmitionDuration + " MB/s");
+      double transmitionDuration = (new Date().getTime() - lastTransmitionStart.getTime()) / 1000.0;
+      System.out.println("File transmitted. " + bytesCurrentTransmition + " Bytes in " + transmitionDuration + " sec = " + bytesCurrentTransmition / 1048576 / transmitionDuration + " MB/s");
     }
     bytesCurrentTransmition = 0;
     lastTransmitionStart = null;
@@ -210,8 +211,8 @@ public class FinateAutomaton {
 	  Package ackPackage = new Package(ack, innerPackage.getSequencenumber());
     DatagramSocket sender = null;
     try {
-      sender = new DatagramSocket(receivedPacket.getSocketAddress());
-      sender.send(new DatagramPacket(ackPackage.getRawData(), ackPackage.getRawData().length));
+      sender = new DatagramSocket();
+      sender.send(new DatagramPacket(ackPackage.getRawData(), ackPackage.getRawData().length, receivedPacket.getAddress(), receivedPacket.getPort()));
     }
     catch (IOException e) {
       throw new IOException("Could not send ACK! " + e.getMessage());

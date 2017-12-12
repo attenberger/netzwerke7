@@ -26,7 +26,7 @@ public class Package {
 
     if (isOk) {
       byte flags = buffer.get();
-      sequencenumber = (flags & (byte)0b10000000) >>> 7; 
+      sequencenumber = (flags & (byte)0b10000000) == 0 ? 0 : 1; 
       isLast = (flags & (byte)0b01000000) == 0 ? true : false;
       isAck = (flags & (byte)0b00100000) == 0 ? false : true;
       
@@ -79,8 +79,8 @@ public class Package {
   }
   
   public byte[] getRawData() {
-    ByteBuffer buffer = ByteBuffer.allocate(8 + filenameLength + contentLength);
-    buffer.putInt(0); // Sequencenumber not calculated yet
+    ByteBuffer bufferWithoutChecksum = ByteBuffer.allocate(8 + filenameLength + contentLength);
+    bufferWithoutChecksum.putInt(0); // Sequencenumber not calculated yet
     
     byte flags = 0;
     if (sequencenumber == 1)
@@ -89,18 +89,20 @@ public class Package {
       flags = (byte)(flags | (byte)0b01000000);
     if (isAck)
       flags = (byte)(flags | (byte)0b00100000);
-    buffer.put(flags);
+    bufferWithoutChecksum.put(flags);
     
-    buffer.put(filenameLength);
-    buffer.put(filename.getBytes());
+    bufferWithoutChecksum.put(filenameLength);
+    bufferWithoutChecksum.put(filename.getBytes());
     
-    buffer.putShort(contentLength);
-    buffer.put(content);
+    bufferWithoutChecksum.putShort(contentLength);
+    bufferWithoutChecksum.put(content);
     
-    int checksum = calculateChecksum(Arrays.copyOfRange(buffer.array(), 4, buffer.array().length - 4));
-    buffer.putInt(checksum, 0);
+    int checksum = calculateChecksum(Arrays.copyOfRange(bufferWithoutChecksum.array(), 4, bufferWithoutChecksum.array().length - 4));
     
-    return buffer.array();
+    ByteBuffer bufferWithChecksum = ByteBuffer.allocate(bufferWithoutChecksum.capacity()); 
+    bufferWithChecksum.putInt(checksum);
+    bufferWithChecksum.put(Arrays.copyOfRange(bufferWithoutChecksum.array(), 4, bufferWithoutChecksum.array().length));
+    return bufferWithChecksum.array();
   }
   
   private static int calculateChecksum(byte[] data) {

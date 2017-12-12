@@ -17,6 +17,7 @@ public class FileReceiver {
         automaton.processMsg(receivedPacket);
       }
     } catch (Exception e) {
+      e.printStackTrace();
       System.out.println(e.getMessage());
     }
   }
