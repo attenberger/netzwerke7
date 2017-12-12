@@ -1,12 +1,11 @@
 package edu.hm.cs.netzwerke1.aufgabe7.filereceiver;
 
 import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.SocketAddress;
-import java.net.SocketException;
+import java.util.Date;
 
 import edu.hm.cs.netzwerke1.aufgabe7.Package;
 
@@ -15,6 +14,8 @@ public class FinateAutomaton {
 	private State currentState;
 	private SocketAddress currentSender = null;
 	private FileOutputStream writer = null;
+	private Date lastTransmitionStart = null;
+	private int bytesCurrentTransmition = 0;
 	
 	// 2D array defining all transitions that can occur
 	private Transition[][] transition;
@@ -26,38 +27,42 @@ public class FinateAutomaton {
 		// (undefined transitions will be ignored)
 		transition = new Transition[State.values().length] [Msg.values().length];
 		
-		transition[State.WAITNEXTFILE.ordinal()] [Msg.START.ordinal()] = new BeginCommunication(); // ACK0 DO
-    /*transition[State.WAITNEXTFILE.ordinal()] [Msg.STARTLAST.ordinal()]; // ACK0 DO
-		transition[State.WAITNEXTFILE.ordinal()] [Msg.OK0.ordinal()]; // NAK
-		transition[State.WAITNEXTFILE.ordinal()] [Msg.OK1.ordinal()]; // NAK
-		transition[State.WAITNEXTFILE.ordinal()] [Msg.OK0LAST.ordinal()]; // NAK
-    transition[State.WAITNEXTFILE.ordinal()] [Msg.OK1LAST.ordinal()]; // NAK
-		transition[State.WAITNEXTFILE.ordinal()] [Msg.CORRUPT.ordinal()]; // NAK
+		transition[State.WAITNEXTFILE.ordinal()] [Msg.START.ordinal()] = beginCommunication;
+    transition[State.WAITNEXTFILE.ordinal()] [Msg.STARTLAST.ordinal()] = beginEndCommunication;
+		transition[State.WAITNEXTFILE.ordinal()] [Msg.OK0.ordinal()] = corruptUnexpeted;
+		transition[State.WAITNEXTFILE.ordinal()] [Msg.OK1.ordinal()] = corruptUnexpeted;
+		transition[State.WAITNEXTFILE.ordinal()] [Msg.OK0LAST.ordinal()] = repeatAckLast;
+    transition[State.WAITNEXTFILE.ordinal()] [Msg.OK1LAST.ordinal()] = repeatAckLast;
+		transition[State.WAITNEXTFILE.ordinal()] [Msg.CORRUPT.ordinal()] = corruptUnexpeted;
+    transition[State.WAITNEXTFILE.ordinal()] [Msg.DIFFERENTSENDER.ordinal()] = corruptUnexpeted;
 		
-		transition[State.WAIT0.ordinal()] [Msg.START.ordinal()]; // NAK
-		transition[State.WAIT0.ordinal()] [Msg.STARTLAST.ordinal()]; // NAK
-		transition[State.WAIT0.ordinal()] [Msg.OK0.ordinal()]; // ACK DO
-		transition[State.WAIT0.ordinal()] [Msg.OK1.ordinal()]; // NAK
-    transition[State.WAIT0.ordinal()] [Msg.OK0LAST.ordinal()]; // ACK DO
-    transition[State.WAIT0.ordinal()] [Msg.OK1LAST.ordinal()]; // NAK
-		transition[State.WAIT0.ordinal()] [Msg.CORRUPT.ordinal()]; // NAK
-    transition[State.WAIT0.ordinal()] [Msg.DIFFERENTSENDER.ordinal()]; // NAK
+		transition[State.WAIT0.ordinal()] [Msg.START.ordinal()] = corruptUnexpeted;
+		transition[State.WAIT0.ordinal()] [Msg.STARTLAST.ordinal()] = corruptUnexpeted;
+		transition[State.WAIT0.ordinal()] [Msg.OK0.ordinal()] = proccedOk0;
+		transition[State.WAIT0.ordinal()] [Msg.OK1.ordinal()] = repeatAck;
+    transition[State.WAIT0.ordinal()] [Msg.OK0LAST.ordinal()] = proccedOkLast;
+    transition[State.WAIT0.ordinal()] [Msg.OK1LAST.ordinal()] = corruptUnexpeted;
+		transition[State.WAIT0.ordinal()] [Msg.CORRUPT.ordinal()]= corruptUnexpeted;
+    transition[State.WAIT0.ordinal()] [Msg.DIFFERENTSENDER.ordinal()] = corruptUnexpeted;
 		
-		transition[State.WAIT1.ordinal()] [Msg.START.ordinal()]; // NAK
-    transition[State.WAIT1.ordinal()] [Msg.STARTLAST.ordinal()]; // NAK
-		transition[State.WAIT1.ordinal()] [Msg.OK0.ordinal()]; // NAK
-		transition[State.WAIT1.ordinal()] [Msg.OK1.ordinal()]; // ACK DO
-    transition[State.WAIT0.ordinal()] [Msg.OK0LAST.ordinal()]; // NAK
-    transition[State.WAIT0.ordinal()] [Msg.OK1LAST.ordinal()]; // ACK DO
-		transition[State.WAIT1.ordinal()] [Msg.CORRUPT.ordinal()]; // NAK
-    transition[State.WAIT1.ordinal()] [Msg.DIFFERENTSENDER.ordinal()]; // NAK*/
+		transition[State.WAIT1.ordinal()] [Msg.START.ordinal()] = corruptUnexpeted;
+    transition[State.WAIT1.ordinal()] [Msg.STARTLAST.ordinal()] = corruptUnexpeted;
+		transition[State.WAIT1.ordinal()] [Msg.OK0.ordinal()] = repeatAck;
+		transition[State.WAIT1.ordinal()] [Msg.OK1.ordinal()] = proccedOk1;
+    transition[State.WAIT0.ordinal()] [Msg.OK0LAST.ordinal()] = corruptUnexpeted;
+    transition[State.WAIT0.ordinal()] [Msg.OK1LAST.ordinal()] = proccedOkLast;
+		transition[State.WAIT1.ordinal()] [Msg.CORRUPT.ordinal()] = corruptUnexpeted;
+    transition[State.WAIT1.ordinal()] [Msg.DIFFERENTSENDER.ordinal()] = corruptUnexpeted;
 	}
 	
 	public void processMsg(DatagramPacket receivedPacket) throws Exception{
 	  Package udpDataPackage = new Package(receivedPacket);
 	  Transition trans;
-	  if (udpDataPackage.isCorrupt()) {
+	  if (!udpDataPackage.isOk()) {
 	    trans = transition[currentState.ordinal()][Msg.CORRUPT.ordinal()];
+	  }
+	  else if (udpDataPackage.isStart() && currentState != State.WAITNEXTFILE) {
+	    trans = transition[currentState.ordinal()][Msg.DIFFERENTSENDER.ordinal()];
 	  }
 	  else if (udpDataPackage.isStart() && udpDataPackage.isLast()) {
 	    trans = transition[currentState.ordinal()][Msg.STARTLAST.ordinal()];
@@ -87,46 +92,134 @@ public class FinateAutomaton {
 	  currentState = trans.execute(receivedPacket);
 	}
 	
-	/**
-	 * Abstract base class for all transitions.
-	 * Derived classes need to override execute thereby defining the action
-	 * to be performed whenever this transition occurs.
-	 */
-	abstract class Transition {
-		abstract public State execute(DatagramPacket receivedPacket);
+	Transition beginCommunication = (receivedPacket) -> {
+	  Package innerPackage = new Package(receivedPacket);
+	  
+	  initNewConnection(receivedPacket);
+    writeDataToFile(innerPackage.getContent());
+    sendAckNak(receivedPacket, true);
+	  return State.WAIT1;
+	};
+	
+	Transition beginEndCommunication = (receivedPacket) -> {
+	  Package innerPackage = new Package(receivedPacket);
+	  
+    initNewConnection(receivedPacket);
+    writeDataToFile(innerPackage.getContent());
+    sendAckNak(receivedPacket, true);
+    closeConnection();
+    return State.WAITNEXTFILE;
+  };
+
+  Transition corruptUnexpeted = (receivedPacket) -> {
+    sendAckNak(receivedPacket, false);
+    return currentState;
+  };
+  
+  Transition proccedOk0 = (receivedPacket) -> {
+    Package innerPackage = new Package(receivedPacket);
+    writeDataToFile(innerPackage.getContent());
+    sendAckNak(receivedPacket, true);
+    return State.WAIT1;
+  };
+  
+  Transition repeatAck = (receivedPacket) -> {
+    sendAckNak(receivedPacket, true);
+    return currentState;
+  };
+  
+  Transition proccedOkLast = (receivedPacket) -> {
+    Package innerPackage = new Package(receivedPacket);
+    writeDataToFile(innerPackage.getContent());
+    sendAckNak(receivedPacket, true);
+    closeConnection();
+    return State.WAITNEXTFILE;
+  };
+  
+  Transition proccedOk1 = (receivedPacket) -> {
+    Package innerPackage = new Package(receivedPacket);
+    writeDataToFile(innerPackage.getContent());
+    sendAckNak(receivedPacket, true);
+    return State.WAIT0;
+  };
+  
+  Transition repeatAckLast = (receivedPacket) -> {
+    if (receivedPacket.getSocketAddress().equals(currentSender))
+      // Last Paket of File retransmitted
+      sendAckNak(receivedPacket, true);
+    else
+      sendAckNak(receivedPacket, false);
+    return currentState;
+  };
+  
+  
+  private void initNewConnection(DatagramPacket receivedPacket) throws IOException {
+    currentSender = receivedPacket.getSocketAddress();
+    lastTransmitionStart = new Date();
+    bytesCurrentTransmition = 0;
+    Package innerPackage = new Package(receivedPacket);
+    
+    try {
+      writer = new FileOutputStream(innerPackage.getFilename());
+    }
+    catch (IOException e) {
+      try {
+        writer.close();
+        writer = null;
+      }
+      catch (IOException e1) {}
+      throw new IOException("Error while writing file to disk!" + e.getMessage());
+    }
+  }
+  
+  private void closeConnection() {
+    if (bytesCurrentTransmition == 0)
+      System.out.println("No data transmitted.");
+    else {
+      long transmitionDuration = (new Date().getTime() - lastTransmitionStart.getTime()) / 1000;
+      System.out.println("File transmitted. " + bytesCurrentTransmition + " Bytes in " + transmitionDuration + " = " + bytesCurrentTransmition / 1048576 / transmitionDuration + " MB/s");
+    }
+    bytesCurrentTransmition = 0;
+    lastTransmitionStart = null;
+    try {
+      writer.close();
+    }
+    catch (IOException e) {}
+    finally {
+      writer = null;
+    }
+  }
+	
+	private void writeDataToFile(byte[] content) throws IOException {
+	  bytesCurrentTransmition += content.length;
+	  try {
+      writer.write(content);
+    }
+    catch (IOException e) {
+      try {
+        writer.close();
+        writer = null;
+      }
+      catch (IOException e1) {}
+      throw new IOException("Error while writing file to disk!" + e.getMessage());
+    }
 	}
 	
-	class BeginCommunication extends Transition {
-    @Override
-    public State execute(DatagramPacket receivedPacket) {
-      currentSender = receivedPacket.getSocketAddress();
-      Package udpDataPackage = new Package(receivedPacket);
-      try {
-        writer = new FileOutputStream(udpDataPackage.getFilename());
-        writer.write(udpDataPackage.getContent());
-      } catch (IOException e) {
-        System.out.println("Error while writing file to disk!");
-        System.out.println(e.getMessage());
-        try {
-          writer.close();
-          writer = null;
-        }
-        catch (IOException e1) {}
-        
-        return State.WAITNEXTFILE;
-      }
-      try {
-        DatagramSocket sender = new DatagramSocket(currentSender);
-        sender.send(new DatagramPacket(new Package(true, 0).getRawData(), 8));
-        sender.close();
-      } catch (IOException e) {
-        System.out.println("Could not send ACK!");
-        System.out.println(e.getMessage());
-        return State.WAITNEXTFILE;
-      }
-      
-      return State.WAIT1;
+	private void sendAckNak(DatagramPacket receivedPacket, boolean ack) throws IOException {
+	  Package innerPackage = new Package(receivedPacket);
+	  Package ackPackage = new Package(ack, innerPackage.getSequencenumber());
+    DatagramSocket sender = null;
+    try {
+      sender = new DatagramSocket(receivedPacket.getSocketAddress());
+      sender.send(new DatagramPacket(ackPackage.getRawData(), ackPackage.getRawData().length));
     }
-	  
+    catch (IOException e) {
+      throw new IOException("Could not send ACK! " + e.getMessage());
+    }
+    finally {
+      sender.close();
+    }
 	}
+	
+
 }

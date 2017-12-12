@@ -2,54 +2,43 @@ package edu.hm.cs.netzwerke1.aufgabe7;
 
 import java.net.DatagramPacket;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.zip.CRC32;
 
 public class Package {
-  
-  private final byte[] rawdata;
-  
-  private final long checksum;
-  private final int sequencenumber;
-  private final boolean isLast;
-  private final boolean isAck;
-  private final int filenameLength;
-  private final String filename;
-  private final int contentLength;
-  private final byte[] content;
-  private final boolean isCorrupt;
+
+  private boolean isOk;
+  private int sequencenumber;
+  private boolean isLast;
+  private boolean isAck;
+  private byte filenameLength;
+  private String filename;
+  private short contentLength;
+  private byte[] content;
   
   
   public Package(DatagramPacket receivedPacket) {
-    rawdata = receivedPacket.getData();
-    ByteBuffer buffer = ByteBuffer.wrap(rawdata);
-    checksum = (long)buffer.getInt() - Integer.MIN_VALUE;
-    
-    int flags = buffer.get() - Byte.MIN_VALUE;
-    sequencenumber = flags >= 128 ? 1 : 0;
-    flags = flags % 128;
-    isLast = flags >= 64 ? false : true;
-    flags = flags % 64;
-    isAck = flags >= 32 ? true : false;
-    flags = flags % 32;
-    
-    filenameLength = buffer.get() - Byte.MIN_VALUE;
-    if (filenameLength == 0)
-      filename = null;
-    else {
-      StringBuilder sb = new StringBuilder();
-      for (int i=0; i<filenameLength; i++)
-        sb.append(buffer.getChar());
-      filename = sb.toString();
+    ByteBuffer buffer = ByteBuffer.wrap(receivedPacket.getData());
+        
+    int transmittedChecksum = buffer.getInt();
+    int calculatedChecksum = calculateChecksum(Arrays.copyOfRange(receivedPacket.getData(), 4, receivedPacket.getLength() - 4));
+    isOk = transmittedChecksum == calculatedChecksum;
+
+    if (isOk) {
+      byte flags = buffer.get();
+      sequencenumber = (flags & (byte)0b10000000) >>> 7; 
+      isLast = (flags & (byte)0b01000000) == 0 ? true : false;
+      isAck = (flags & (byte)0b00100000) == 0 ? false : true;
+      
+      filenameLength = buffer.get();
+      if (filenameLength == 0)
+        filename = null;
+      else
+        filename = new String(Arrays.copyOfRange(receivedPacket.getData(), 6, 6 + filenameLength));
+      
+      contentLength = buffer.getShort(6 + filenameLength);
+      content = Arrays.copyOfRange(receivedPacket.getData(), 8 + filenameLength, 8 + filenameLength + contentLength);
     }
-    
-    contentLength = buffer.getShort() - Short.MIN_VALUE;
-    content = new byte[contentLength];
-    for (int i=0; i<contentLength; i++)
-      content[i] = buffer.get();
-    
-    CRC32 crc = new CRC32();
-    crc.update(receivedPacket.getData(), 4, receivedPacket.getData().length - 4);
-    isCorrupt = crc.getValue() != checksum ? true : false;
   }
   
   public Package(boolean isAck, int sequencenumber) {
@@ -58,36 +47,15 @@ public class Package {
     this.sequencenumber = sequencenumber;
     this.isLast = true;
     this.isAck = isAck;
-    this.isCorrupt = false;
+    this.isOk = true;
     this.filenameLength = 0;
-    this.filename = null;
+    this.filename = "";
     this.contentLength = 0;
     this.content = new byte[0];
-    
-    byte[] rawdataToCalculate = new byte[8];
-    int flags = 0;
-    flags += sequencenumber == 1 ? 128 : 0;
-    flags += isLast ? 0 : 64;
-    flags += isAck ? 32 : 0;
-    rawdataToCalculate[4] = (byte)(flags + Byte.MIN_VALUE);
-    rawdataToCalculate[5] = 0;
-    rawdataToCalculate[6] = 0;
-    rawdataToCalculate[7] = 0;
-    CRC32 crc = new CRC32();
-    crc.update(rawdataToCalculate, 4, rawdataToCalculate.length - 4);
-    this.checksum = crc.getValue();
-    
-    ByteBuffer buffer = ByteBuffer.allocate(8);
-    buffer.putInt((int)(checksum + Integer.MIN_VALUE));
-    buffer.put((byte)(flags + Byte.MIN_VALUE));
-    buffer.put((byte)0);
-    buffer.put((byte)0);
-    buffer.put((byte)0);
-    this.rawdata = buffer.array();
   }
   
-  public boolean isCorrupt() {
-    return isCorrupt;
+  public boolean isOk() {
+    return isOk;
   }
   
   public boolean isStart() {
@@ -111,6 +79,35 @@ public class Package {
   }
   
   public byte[] getRawData() {
-    return rawdata;
+    ByteBuffer buffer = ByteBuffer.allocate(8 + filenameLength + contentLength);
+    buffer.putInt(0); // Sequencenumber not calculated yet
+    
+    byte flags = 0;
+    if (sequencenumber == 1)
+      flags = (byte)(flags | (byte)0b10000000);
+    if (!isLast)
+      flags = (byte)(flags | (byte)0b01000000);
+    if (isAck)
+      flags = (byte)(flags | (byte)0b00100000);
+    buffer.put(flags);
+    
+    buffer.put(filenameLength);
+    buffer.put(filename.getBytes());
+    
+    buffer.putShort(contentLength);
+    buffer.put(content);
+    
+    int checksum = calculateChecksum(Arrays.copyOfRange(buffer.array(), 4, buffer.array().length - 4));
+    buffer.putInt(checksum, 0);
+    
+    return buffer.array();
   }
+  
+  private static int calculateChecksum(byte[] data) {
+    CRC32 crc = new CRC32();
+    crc.update(data);
+    return (int)crc.getValue();
+  }
+  
+  
 }
