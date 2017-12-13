@@ -28,6 +28,8 @@ public class FileSender {
 
 	private Package lastPackage;
 
+	private boolean finished = false;
+
 	private Transition[][] transitions = new Transition[SenderState.values().length][SenderMessage.values().length];
 
 	private ExecutorService executorService = Executors.newSingleThreadExecutor();
@@ -40,8 +42,8 @@ public class FileSender {
 			p.setSequencenumber(0);
 
 			byte[] content = getNextPart(p.getRemainingSize());
-			p.setLast(p.getRemainingSize() > 0);
 			p.setContent(content);
+			p.setLast(p.getRemainingSize() > 0);
 
 			sendNext(p);
 			return SenderState.WAIT_FOR_ACK_0;
@@ -60,8 +62,8 @@ public class FileSender {
 			p.setSequencenumber(1);
 
 			byte[] content = getNextPart(p.getRemainingSize());
-			p.setLast(p.getRemainingSize() > 0);
 			p.setContent(content);
+			p.setLast(p.getRemainingSize() > 0);
 
 			sendNext(p);
 			return SenderState.WAIT_FOR_ACK_1;
@@ -80,8 +82,8 @@ public class FileSender {
 			p.setSequencenumber(0);
 
 			byte[] content = getNextPart(p.getRemainingSize());
-			p.setLast(p.getRemainingSize() > 0);
 			p.setContent(content);
+			p.setLast(p.getRemainingSize() > 0);
 
 			sendNext(p);
 			return SenderState.WAIT_FOR_ACK_0;
@@ -101,6 +103,10 @@ public class FileSender {
 
 		// Send first package.
 		processMsg(SenderMessage.SEND);
+
+		while (!finished) {
+			waitForAck();
+		}
 	}
 
 	private void sendNext(Package p) throws IOException {
@@ -111,25 +117,25 @@ public class FileSender {
 		socket.send(packet);
 
 		lastPackage = p;
+	}
 
-		executorService.execute(() -> {
-			// Wait for answer or timeout.
-			DatagramPacket receivePacket = new DatagramPacket(new byte[Package.MAX_PACKAGE_SIZE], Package.MAX_PACKAGE_SIZE);
+	private void waitForAck() {
+		// Wait for answer or timeout.
+		DatagramPacket receivePacket = new DatagramPacket(new byte[Package.MAX_PACKAGE_SIZE], Package.MAX_PACKAGE_SIZE);
+		try {
+			socket.receive(receivePacket);
+
+			Package received = new Package(receivePacket);
+			processMsg(received);
+		} catch (SocketTimeoutException e) {
 			try {
-				socket.receive(receivePacket);
-
-				Package received = new Package(receivePacket);
-				processMsg(received);
-			} catch (SocketTimeoutException e) {
-				try {
-					processMsg(SenderMessage.RESEND);
-				} catch (IOException e1) {
-					e1.printStackTrace();
-				}
-			} catch (IOException e) {
-				e.printStackTrace();
+				processMsg(SenderMessage.RESEND);
+			} catch (IOException e1) {
+				e1.printStackTrace();
 			}
-		});
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 
 	private byte[] getNextPart(int size) throws IOException {
@@ -140,6 +146,7 @@ public class FileSender {
 		byte[] result = null;
 		if (length == -1) {
 			result = new byte[0];
+			finished = true;
 		} else {
 			result = new byte[length];
 			System.arraycopy(buffer, 0, result, 0, length);

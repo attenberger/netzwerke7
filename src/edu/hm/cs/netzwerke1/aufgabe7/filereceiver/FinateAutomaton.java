@@ -155,7 +155,7 @@ public class FinateAutomaton {
 		try {
 			File file = new File(innerPackage.getFilename());
 			System.out.println("Writing file to: " + file.getAbsolutePath());
-			writer = new FileOutputStream(file, true);
+			writer = new FileOutputStream(file, false);
 		} catch (IOException e) {
 			try {
 				writer.close();
