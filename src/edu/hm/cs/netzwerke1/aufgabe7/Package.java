@@ -81,7 +81,7 @@ public class Package {
 	}
 
 	public boolean isStart() {
-		return filename == null;
+		return filename != null;
 	}
 
 	public boolean isAck() {
@@ -93,7 +93,7 @@ public class Package {
 	}
 
 	public byte getFilenameLength() {
-		return (byte) filename.getBytes(StandardCharsets.UTF_8).length;
+		return filename != null ? (byte) filename.getBytes(StandardCharsets.UTF_8).length : 0;
 	}
 
 	public String getFilename() {
@@ -105,7 +105,7 @@ public class Package {
 	}
 
 	public short getContentLength() {
-		return (short) content.length;
+		return content != null ? (short) content.length : 0;
 	}
 
 	public byte[] getContent() {
@@ -122,9 +122,7 @@ public class Package {
 	 * @return package as byte array
 	 */
 	public byte[] getRawData() {
-		byte[] fileNameArray = filename.getBytes(StandardCharsets.UTF_8);
-
-		ByteBuffer bufferWithoutChecksum = ByteBuffer.allocate(8 + fileNameArray.length + content.length);
+		ByteBuffer bufferWithoutChecksum = ByteBuffer.allocate(8 + getFilenameLength() + getContentLength());
 		bufferWithoutChecksum.putInt(0); // Sequencenumber not calculated yet
 
 		byte flags = 0;
@@ -136,6 +134,7 @@ public class Package {
 			flags = (byte) (flags | (byte) 0b00100000);
 		bufferWithoutChecksum.put(flags);
 
+		byte[] fileNameArray = filename != null ? filename.getBytes(StandardCharsets.UTF_8) : new byte[0];
 		bufferWithoutChecksum.put((byte) fileNameArray.length);
 		bufferWithoutChecksum.put(fileNameArray);
 

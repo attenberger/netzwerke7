@@ -1,5 +1,6 @@
 package edu.hm.cs.netzwerke1.aufgabe7.filereceiver;
 
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -152,7 +153,9 @@ public class FinateAutomaton {
 		Package innerPackage = new Package(receivedPacket);
 
 		try {
-			writer = new FileOutputStream(innerPackage.getFilename());
+			File file = new File(innerPackage.getFilename());
+			System.out.println("Writing file to: " + file.getAbsolutePath());
+			writer = new FileOutputStream(file, true);
 		} catch (IOException e) {
 			try {
 				writer.close();
