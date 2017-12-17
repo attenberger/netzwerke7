@@ -12,11 +12,15 @@ import edu.hm.cs.netzwerke1.aufgabe7.Package;
 
 public class FinateAutomaton {
 
-	private State currentState;
+	private static final int WAITTIMELASTDUPPLICATE = 5000;
+  
+  private State currentState;
 	private SocketAddress currentSender = null;
 	private FileOutputStream writer = null;
 	private Date lastTransmitionStart = null;
 	private int bytesCurrentTransmition = 0;
+	private Thread currentLastDuplicateTimer = null;
+	private Package lastReceivedPackage = null;
 
 	// 2D array defining all transitions that can occur
 	private Transition[][] transition;
@@ -32,8 +36,8 @@ public class FinateAutomaton {
 		transition[State.WAITNEXTFILE.ordinal()][Msg.STARTLAST.ordinal()] = beginEndCommunication;
 		transition[State.WAITNEXTFILE.ordinal()][Msg.OK0.ordinal()] = corruptUnexpeted;
 		transition[State.WAITNEXTFILE.ordinal()][Msg.OK1.ordinal()] = corruptUnexpeted;
-		transition[State.WAITNEXTFILE.ordinal()][Msg.OK0LAST.ordinal()] = repeatAckLast;
-		transition[State.WAITNEXTFILE.ordinal()][Msg.OK1LAST.ordinal()] = repeatAckLast;
+		transition[State.WAITNEXTFILE.ordinal()][Msg.OK0LAST.ordinal()] = corruptUnexpeted;
+		transition[State.WAITNEXTFILE.ordinal()][Msg.OK1LAST.ordinal()] = corruptUnexpeted;
 		transition[State.WAITNEXTFILE.ordinal()][Msg.CORRUPT.ordinal()] = corruptUnexpeted;
 		transition[State.WAITNEXTFILE.ordinal()][Msg.DIFFERENTSENDER.ordinal()] = corruptUnexpeted;
 
@@ -54,7 +58,34 @@ public class FinateAutomaton {
 		transition[State.WAIT1.ordinal()][Msg.OK1LAST.ordinal()] = proccedOkLast;
 		transition[State.WAIT1.ordinal()][Msg.CORRUPT.ordinal()] = corruptUnexpeted;
 		transition[State.WAIT1.ordinal()][Msg.DIFFERENTSENDER.ordinal()] = corruptUnexpeted;
+		
+		transition[State.WAITDUPLIKATELAST.ordinal()][Msg.START.ordinal()] = corruptUnexpeted;
+    transition[State.WAITDUPLIKATELAST.ordinal()][Msg.STARTLAST.ordinal()] = repeatAckLastStart;
+    transition[State.WAITDUPLIKATELAST.ordinal()][Msg.OK0.ordinal()] = corruptUnexpeted;
+    transition[State.WAITDUPLIKATELAST.ordinal()][Msg.OK1.ordinal()] = corruptUnexpeted;
+    transition[State.WAITDUPLIKATELAST.ordinal()][Msg.OK0LAST.ordinal()] = repeatAckLast;
+    transition[State.WAITDUPLIKATELAST.ordinal()][Msg.OK1LAST.ordinal()] = repeatAckLast;
+    transition[State.WAITDUPLIKATELAST.ordinal()][Msg.CORRUPT.ordinal()] = corruptUnexpeted;
+    transition[State.WAITDUPLIKATELAST.ordinal()][Msg.DIFFERENTSENDER.ordinal()] = corruptUnexpeted;
 	}
+	
+	private Runnable lastDuplicateTimer = new Runnable() {
+    @Override
+    public void run() {
+      boolean interrupted = true;
+      while (interrupted) {
+        interrupted = false;
+        try {
+          Thread.sleep(WAITTIMELASTDUPPLICATE);
+        } catch (InterruptedException e) {
+          interrupted = true;
+        }
+      }
+      closeConnection();
+      currentState = State.WAITNEXTFILE;
+    }
+    
+  };
 
 	public void processMsg(DatagramPacket receivedPacket) throws Exception {
 		Package udpDataPackage = new Package(receivedPacket);
@@ -62,6 +93,8 @@ public class FinateAutomaton {
 
 		if (!udpDataPackage.isOk()) {
 			trans = transition[currentState.ordinal()][Msg.CORRUPT.ordinal()];
+		} else if (udpDataPackage.isStart() && currentState != State.WAITNEXTFILE && currentSender.equals(receivedPacket.getSocketAddress())) {
+		  trans = transition[currentState.ordinal()][Msg.OK0.ordinal()];
 		} else if (udpDataPackage.isStart() && currentState != State.WAITNEXTFILE) {
 			trans = transition[currentState.ordinal()][Msg.DIFFERENTSENDER.ordinal()];
 		} else if (udpDataPackage.isStart() && udpDataPackage.isLast()) {
@@ -91,6 +124,7 @@ public class FinateAutomaton {
 		initNewConnection(receivedPacket);
 		writeDataToFile(innerPackage.getContent());
 		sendAckNak(receivedPacket, true);
+		lastReceivedPackage = innerPackage;
 		return State.WAIT1;
 	};
 
@@ -100,8 +134,10 @@ public class FinateAutomaton {
 		initNewConnection(receivedPacket);
 		writeDataToFile(innerPackage.getContent());
 		sendAckNak(receivedPacket, true);
-		closeConnection();
-		return State.WAITNEXTFILE;
+    lastReceivedPackage = innerPackage;
+		currentLastDuplicateTimer = new Thread(lastDuplicateTimer);
+		currentLastDuplicateTimer.start();
+		return State.WAITDUPLIKATELAST;
 	};
 
 	Transition corruptUnexpeted = (receivedPacket) -> {
@@ -113,11 +149,13 @@ public class FinateAutomaton {
 		Package innerPackage = new Package(receivedPacket);
 		writeDataToFile(innerPackage.getContent());
 		sendAckNak(receivedPacket, true);
+    lastReceivedPackage = innerPackage;
 		return State.WAIT1;
 	};
 
 	Transition repeatAck = (receivedPacket) -> {
 		sendAckNak(receivedPacket, true);
+    lastReceivedPackage = new Package(receivedPacket);
 		return currentState;
 	};
 
@@ -125,25 +163,39 @@ public class FinateAutomaton {
 		Package innerPackage = new Package(receivedPacket);
 		writeDataToFile(innerPackage.getContent());
 		sendAckNak(receivedPacket, true);
-		closeConnection();
-		return State.WAITNEXTFILE;
+    lastReceivedPackage = innerPackage;
+    currentLastDuplicateTimer = new Thread(lastDuplicateTimer);
+    currentLastDuplicateTimer.start();
+		return State.WAITDUPLIKATELAST;
 	};
 
 	Transition proccedOk1 = (receivedPacket) -> {
 		Package innerPackage = new Package(receivedPacket);
 		writeDataToFile(innerPackage.getContent());
 		sendAckNak(receivedPacket, true);
+    lastReceivedPackage = innerPackage;
 		return State.WAIT0;
 	};
 
 	Transition repeatAckLast = (receivedPacket) -> {
-		if (receivedPacket.getSocketAddress().equals(currentSender))
-			// Last Paket of File retransmitted
-			sendAckNak(receivedPacket, true);
-		else
-			sendAckNak(receivedPacket, false);
-		return currentState;
+	  sendAckNak(receivedPacket, true);
+	  currentLastDuplicateTimer.interrupt();
+    lastReceivedPackage = new Package(receivedPacket);
+	  return currentState;
 	};
+	
+	Transition repeatAckLastStart = (receivedPacket) -> {
+    Package innerPackage = new Package(receivedPacket);
+    if (innerPackage.equals(lastReceivedPackage)) {
+      sendAckNak(receivedPacket, true);
+      currentLastDuplicateTimer.interrupt();
+      lastReceivedPackage = new Package(receivedPacket);
+    }
+    else {
+      sendAckNak(receivedPacket, false); // Equals unexpected / currupt
+    }
+    return currentState;
+  };
 
 
 	private void initNewConnection(DatagramPacket receivedPacket) throws IOException {
@@ -210,6 +262,4 @@ public class FinateAutomaton {
 			sender.close();
 		}
 	}
-
-
 }

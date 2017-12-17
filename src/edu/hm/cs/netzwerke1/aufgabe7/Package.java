@@ -180,4 +180,44 @@ public class Package {
 		return (int) crc.getValue();
 	}
 
+  @Override
+  public int hashCode() {
+    final int prime = 31;
+    int result = 1;
+    result = prime * result + Arrays.hashCode(content);
+    result = prime * result + ((filename == null) ? 0 : filename.hashCode());
+    result = prime * result + (isAck ? 1231 : 1237);
+    result = prime * result + (isLast ? 1231 : 1237);
+    result = prime * result + (isOk ? 1231 : 1237);
+    result = prime * result + sequencenumber;
+    return result;
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj)
+      return true;
+    if (obj == null)
+      return false;
+    if (getClass() != obj.getClass())
+      return false;
+    Package other = (Package) obj;
+    if (!Arrays.equals(content, other.content))
+      return false;
+    if (filename == null) {
+      if (other.filename != null)
+        return false;
+    } else if (!filename.equals(other.filename))
+      return false;
+    if (isAck != other.isAck)
+      return false;
+    if (isLast != other.isLast)
+      return false;
+    if (isOk != other.isOk)
+      return false;
+    if (sequencenumber != other.sequencenumber)
+      return false;
+    return true;
+  }
+
 }
