@@ -160,7 +160,7 @@ public class FileSender {
 
 		if (p == null) {
 			t = transitions[currentState.ordinal()][SenderMessage.SEND.ordinal()];
-		} else if (!p.isOk()) {
+		} else if (!p.isOk() || (p.getSequencenumber() == lastPackage.getSequencenumber() && !p.isAck())) {
 			t = transitions[currentState.ordinal()][SenderMessage.RESEND.ordinal()];
 		} else if (p.getSequencenumber() == lastPackage.getSequencenumber() && p.isAck()) {
 			t = transitions[currentState.ordinal()][SenderMessage.OK.ordinal()];

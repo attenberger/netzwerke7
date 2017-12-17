@@ -72,6 +72,16 @@ public class FinateAutomaton {
 	private Runnable lastDuplicateTimer = new Runnable() {
     @Override
     public void run() {
+      if (bytesCurrentTransmition == 0)
+        System.out.println("No data transmitted.");
+      else {
+        double transmitionDuration = (new Date().getTime() - lastTransmitionStart.getTime()) / 1000.0;
+        double rate = bytesCurrentTransmition / 1048576.0 / transmitionDuration;
+        System.out.printf("File transmitted. %d Bytes in %f sec = %f MB/s", bytesCurrentTransmition, transmitionDuration, rate);
+      }
+      bytesCurrentTransmition = 0;
+      lastTransmitionStart = null;
+      
       boolean interrupted = true;
       while (interrupted) {
         interrupted = false;
@@ -219,14 +229,6 @@ public class FinateAutomaton {
 	}
 
 	private void closeConnection() {
-		if (bytesCurrentTransmition == 0)
-			System.out.println("No data transmitted.");
-		else {
-			double transmitionDuration = (new Date().getTime() - lastTransmitionStart.getTime()) / 1000.0;
-			System.out.println("File transmitted. " + bytesCurrentTransmition + " Bytes in " + transmitionDuration + " sec = " + bytesCurrentTransmition / 1048576 / transmitionDuration + " MB/s");
-		}
-		bytesCurrentTransmition = 0;
-		lastTransmitionStart = null;
 		try {
 			writer.close();
 		} catch (IOException e) {
