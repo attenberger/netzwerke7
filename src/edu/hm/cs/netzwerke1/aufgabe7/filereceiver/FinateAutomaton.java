@@ -39,14 +39,14 @@ public class FinateAutomaton {
 		transition[State.WAITNEXTFILE.ordinal()][Msg.OK0LAST.ordinal()] = corruptUnexpeted;
 		transition[State.WAITNEXTFILE.ordinal()][Msg.OK1LAST.ordinal()] = corruptUnexpeted;
 		transition[State.WAITNEXTFILE.ordinal()][Msg.CORRUPT.ordinal()] = corruptUnexpeted;
-		transition[State.WAITNEXTFILE.ordinal()][Msg.DIFFERENTSENDER.ordinal()] = corruptUnexpeted;
+		transition[State.WAITNEXTFILE.ordinal()][Msg.DIFFERENTSENDER.ordinal()] = null;
 
 		transition[State.WAIT0.ordinal()][Msg.START.ordinal()] = corruptUnexpeted;
 		transition[State.WAIT0.ordinal()][Msg.STARTLAST.ordinal()] = corruptUnexpeted;
 		transition[State.WAIT0.ordinal()][Msg.OK0.ordinal()] = proccedOk0;
 		transition[State.WAIT0.ordinal()][Msg.OK1.ordinal()] = repeatAck;
 		transition[State.WAIT0.ordinal()][Msg.OK0LAST.ordinal()] = proccedOkLast;
-		transition[State.WAIT0.ordinal()][Msg.OK1LAST.ordinal()] = corruptUnexpeted;
+		transition[State.WAIT0.ordinal()][Msg.OK1LAST.ordinal()] = null;
 		transition[State.WAIT0.ordinal()][Msg.CORRUPT.ordinal()] = corruptUnexpeted;
 		transition[State.WAIT0.ordinal()][Msg.DIFFERENTSENDER.ordinal()] = corruptUnexpeted;
 
@@ -54,7 +54,7 @@ public class FinateAutomaton {
 		transition[State.WAIT1.ordinal()][Msg.STARTLAST.ordinal()] = corruptUnexpeted;
 		transition[State.WAIT1.ordinal()][Msg.OK0.ordinal()] = repeatAck;
 		transition[State.WAIT1.ordinal()][Msg.OK1.ordinal()] = proccedOk1;
-		transition[State.WAIT1.ordinal()][Msg.OK0LAST.ordinal()] = corruptUnexpeted;
+		transition[State.WAIT1.ordinal()][Msg.OK0LAST.ordinal()] = null;
 		transition[State.WAIT1.ordinal()][Msg.OK1LAST.ordinal()] = proccedOkLast;
 		transition[State.WAIT1.ordinal()][Msg.CORRUPT.ordinal()] = corruptUnexpeted;
 		transition[State.WAIT1.ordinal()][Msg.DIFFERENTSENDER.ordinal()] = corruptUnexpeted;
