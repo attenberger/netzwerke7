@@ -1,5 +1,6 @@
 package edu.hm.cs.netzwerke1.aufgabe7.unreliableChanel;
 
+import java.io.IOException;
 import java.net.DatagramPacket;
 
 public class LostChanel implements UnreliableChanel {
@@ -13,16 +14,12 @@ public class LostChanel implements UnreliableChanel {
   }
 
   @Override
-  public DatagramPacket receive() {
-    return chanel.receive();
-  }
-  
-  @Override
-  public void send(DatagramPacket packet) {
-    if (Math.random() >= PROBABILITYLOST) {
-      chanel.send(packet);
-    }
-    // else lost
+  public DatagramPacket receive() throws IOException {
+	DatagramPacket packet = chanel.receive();
+	while (Math.random() < PROBABILITYLOST) {
+		packet = chanel.receive();
+	}
+    return packet;
   }
 
 }

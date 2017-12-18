@@ -1,5 +1,6 @@
 package edu.hm.cs.netzwerke1.aufgabe7.unreliableChanel;
 
+import java.io.IOException;
 import java.net.DatagramPacket;
 
 public class BitErrorChanel implements UnreliableChanel {
@@ -14,18 +15,14 @@ public class BitErrorChanel implements UnreliableChanel {
   }
 
   @Override
-  public DatagramPacket receive() {
-    return chanel.receive();
-  }
-  
-  @Override
-  public void send(DatagramPacket packet) {
-    if (Math.random() < PROBABILITYBITERROR) {
-      byte[] data = packet.getData();
+  public DatagramPacket receive() throws IOException {
+	DatagramPacket packet = chanel.receive();
+	if (Math.random() < PROBABILITYBITERROR) {
+	  byte[] data = packet.getData();
       byte errorpattern = 0b00001000;
       data[(int)(data.length * 0.5f)] = (byte)(data[(int)(data.length * 0.5f)] ^ errorpattern);
       packet.setData(data);
-    }
-    chanel.send(packet);
+	}  
+    return packet;
   }
 }

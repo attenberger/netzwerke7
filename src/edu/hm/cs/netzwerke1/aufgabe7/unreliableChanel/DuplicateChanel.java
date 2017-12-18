@@ -1,5 +1,6 @@
 package edu.hm.cs.netzwerke1.aufgabe7.unreliableChanel;
 
+import java.io.IOException;
 import java.net.DatagramPacket;
 
 public class DuplicateChanel implements UnreliableChanel {
@@ -15,14 +16,18 @@ public class DuplicateChanel implements UnreliableChanel {
   }
 
   @Override
-  public DatagramPacket receive() {
-    return chanel.receive();
-  }
-
-  @Override
-  public void send(DatagramPacket packet) {
-    chanel.send(packet);
-    if (Math.random() < PROBABILITYDUPLICATE)
-      chanel.send(packet);
+  public DatagramPacket receive() throws IOException {
+	if (packetToSendAgain == null) {  
+	  DatagramPacket packet = chanel.receive();
+	  if (Math.random() < PROBABILITYDUPLICATE) {
+	    packetToSendAgain = packet;
+	  }
+	  return packet;
+	}
+	else {
+	  DatagramPacket packet = packetToSendAgain;
+	  packetToSendAgain = null;
+	  return packet;
+	}
   }
 }

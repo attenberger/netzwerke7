@@ -186,8 +186,14 @@ public class FileSender {
 
 	}
 
-	public static void main(String... args) throws IOException {
-		new FileSender(new File(args[0]), InetAddress.getLoopbackAddress(), 60000);
+	public static void main(String... args) {
+		try {
+			new FileSender(new File(args[0]), InetAddress.getByName(args[1]), 60000);
+		} catch (ArrayIndexOutOfBoundsException e) {
+			System.out.println("As parameters for the program you have to give the name of the file to transmit and the IP or FQDN of the receiver!");
+		} catch (IOException e) {
+			System.out.println(e.getMessage());
+		}
 	}
 
 }

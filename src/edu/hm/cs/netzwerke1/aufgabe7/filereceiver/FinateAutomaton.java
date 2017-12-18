@@ -77,7 +77,7 @@ public class FinateAutomaton {
       else {
         double transmitionDuration = (new Date().getTime() - lastTransmitionStart.getTime()) / 1000.0;
         double rate = bytesCurrentTransmition / 1048576.0 / transmitionDuration;
-        System.out.printf("File transmitted. %d Bytes in %f sec = %f MB/s", bytesCurrentTransmition, transmitionDuration, rate);
+        System.out.printf("File transmitted. %d Bytes in %f sec = %f MB/s\r\n", bytesCurrentTransmition, transmitionDuration, rate);
       }
       bytesCurrentTransmition = 0;
       lastTransmitionStart = null;
