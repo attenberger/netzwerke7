@@ -1,24 +1,31 @@
-package edu.hm.cs.netzwerke1.aufgabe7.unreliableChanel;
+package edu.hm.cs.netzwerke1.aufgabe7.unreliableChannel;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
 
-public class DuplicateChanel implements UnreliableChanel {
-
+/**
+ * Channel which produces duplicate packets with a probability of 5 per cent.
+ * @author Attenberger
+ */
+public class DuplicateChannel implements UnreliableChannel {
 
   private static final double PROBABILITYDUPLICATE = 0.05;
   
-  private UnreliableChanel chanel;
+  private UnreliableChannel channel;
   private DatagramPacket packetToSendAgain = null;
 
-  public DuplicateChanel(UnreliableChanel chanel) {
-    this.chanel = chanel;
+  /**
+   * Creates a new duplicate channel.
+   * @param channel which should be decorated.
+   */
+  public DuplicateChannel(UnreliableChannel channel) {
+    this.channel = channel;
   }
 
   @Override
   public DatagramPacket receive() throws IOException {
 	if (packetToSendAgain == null) {  
-	  DatagramPacket packet = chanel.receive();
+	  DatagramPacket packet = channel.receive();
 	  if (Math.random() < PROBABILITYDUPLICATE) {
 	    packetToSendAgain = packet;
 	  }

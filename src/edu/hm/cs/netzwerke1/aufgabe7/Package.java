@@ -1,6 +1,5 @@
 package edu.hm.cs.netzwerke1.aufgabe7;
 
-import java.io.ByteArrayOutputStream;
 import java.net.DatagramPacket;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -9,6 +8,8 @@ import java.util.zip.CRC32;
 
 /**
  * Package to be sent over the network.
+ * The package contains no infromation about UDP or TCP.
+ * @author Attenberger, Eder
  */
 public class Package {
 
@@ -21,10 +22,17 @@ public class Package {
 	private String filename;
 	private byte[] content;
 
+	/**
+	 * Creates a new empty Package.
+	 */
 	public Package() {
 		// Default constructor
 	}
 
+	/**
+	 * Creates a new Package out of a DatagramPacket.
+	 * @param receivedPacket DatagramPacket received from the sender.
+	 */
 	public Package(DatagramPacket receivedPacket) {
 		ByteBuffer buffer = ByteBuffer.wrap(receivedPacket.getData());
 
@@ -49,6 +57,11 @@ public class Package {
 		}
 	}
 
+	/**
+	 * Creates a new package to confirm a received package.
+	 * @param isAck true if the package should be acknowledged.
+	 * @param sequencenumber of the package that should be confirmed.
+	 */
 	public Package(boolean isAck, int sequencenumber) {
 		if (sequencenumber > 1 || sequencenumber < 0)
 			throw new IllegalArgumentException("It is an alternating-bit protocol. Only the sequencenumbers 0 and 1 are allowed.");
@@ -60,65 +73,120 @@ public class Package {
 		this.content = new byte[0];
 	}
 
+	/**
+	 * Returns if the package does not contain bit errors.
+	 * @return if the package does not contain bit errors
+	 */
 	public boolean isOk() {
 		return isOk;
 	}
 
+	/**
+	 * Returns the sequence number of the package or the package to acknowledge.
+	 * @return sequence number of the package or the package to acknowledge
+	 */
 	public int getSequencenumber() {
 		return sequencenumber;
 	}
 
+	/**
+	 * Sets the sequence number for the package or the package to acknowledge.
+	 * @param sequencenumber for the package or the package to acknowledge
+	 */
 	public void setSequencenumber(int sequencenumber) {
 		this.sequencenumber = sequencenumber;
 	}
 
+	/**
+	 * Returns if the package was the last of the current transmitted file.
+	 * @return if the package was the last of the current transmitted file
+	 */
 	public boolean isLast() {
 		return isLast;
 	}
 
+	/**
+	 * Sets if the package is the last of the current transmitted file.
+	 * @param last to set if the package is the last of the current transmitted file
+	 */
 	public void setLast(boolean last) {
 		isLast = last;
 	}
 
+	/**
+	 * Returns if the package is the start of a new file.
+	 * @return if the package is the start of a new file
+	 */
 	public boolean isStart() {
 		return filename != null;
 	}
 
+	/**
+	 * Returns if the package acknowledged another transmitted package.
+	 * @return if the package acknowledged another transmitted package
+	 */
 	public boolean isAck() {
 		return isAck;
 	}
 
+	/**
+	 * Sets if the package should acknowledge or not acknowledge another transmitted package.
+	 * @param ack true if the package should be acknowledged
+	 */
 	public void setAck(boolean ack) {
 		isAck = ack;
 	}
 
+	/**
+	 * Returns the length of the filename.
+	 * @return length of the filename
+	 */
 	public byte getFilenameLength() {
 		return filename != null ? (byte) filename.getBytes(StandardCharsets.UTF_8).length : 0;
 	}
 
+	/**
+	 * Returns the filename.
+	 * @return filename
+	 */
 	public String getFilename() {
 		return filename;
 	}
 
+	/**
+	 * Sets the filename for the file to transmit. The filename should only be set in the first package.
+	 * @param filename of the file to transmit.
+	 */
 	public void setFilename(String filename) {
 		this.filename = filename;
 	}
 
+	/**
+	 * Returns the number of data bytes transmitted with the package.
+	 * @return number of data bytes transmitted with the package
+	 */
 	public short getContentLength() {
 		return content != null ? (short) content.length : 0;
 	}
 
+	/**
+	 * Returns the content of the package as byte-Array.
+	 * @return content of the package as byte-Array.
+	 */
 	public byte[] getContent() {
 		return content;
 	}
 
+	/**
+	 * Sets the content of the package.
+	 * @param content as byte-Array.
+	 */
 	public void setContent(byte[] content) {
 		this.content = content;
 	}
 
 	/**
 	 * Get package as byte array.
-	 *
 	 * @return package as byte array
 	 */
 	public byte[] getRawData() {
@@ -149,17 +217,24 @@ public class Package {
 		return bufferWithChecksum.array();
 	}
 
+	/**
+	 * Returns the length of the package in bytes including the header.
+	 * @return length of the package in bytes including header
+	 */
 	public int getLength() {
 		return getFilenameLength() + getContentLength() + 8;
 	}
 
+	/**
+	 * Returns the number of bytes, the package could be extended.
+	 * @return number of bytes, the package could be extended
+	 */
 	public int getRemainingSize() {
 		return MAX_PACKAGE_SIZE - getLength();
 	}
 
 	/**
 	 * Get the package as Datagram Packet.
-	 *
 	 * @return the datagram packet to be sent over the network
 	 */
 	public DatagramPacket toDatagramPacket() {
@@ -170,7 +245,6 @@ public class Package {
 
 	/**
 	 * Calculate Checksum for the passed byte array.
-	 *
 	 * @param data to calculate checksum from
 	 * @return 32 Bit Checksum for the passed data array
 	 */

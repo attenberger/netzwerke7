@@ -10,11 +10,15 @@ import java.util.Date;
 
 import edu.hm.cs.netzwerke1.aufgabe7.Package;
 
+/**
+ * Finate automation for the file receiver.
+ * @author Attenberger
+ */
 public class FinateAutomaton {
 
 	private static final int WAITTIMELASTDUPPLICATE = 5000;
   
-  private State currentState;
+	private State currentState;
 	private SocketAddress currentSender = null;
 	private FileOutputStream writer = null;
 	private Date lastTransmitionStart = null;
@@ -25,7 +29,9 @@ public class FinateAutomaton {
 	// 2D array defining all transitions that can occur
 	private Transition[][] transition;
 
-
+	/**
+	 * Creates a new finate automation.
+	 */
 	public FinateAutomaton() {
 		currentState = State.WAITNEXTFILE;
 		// define all valid state transitions for our state machine
@@ -60,43 +66,51 @@ public class FinateAutomaton {
 		transition[State.WAIT1.ordinal()][Msg.DIFFERENTSENDER.ordinal()] = corruptUnexpeted;
 		
 		transition[State.WAITDUPLIKATELAST.ordinal()][Msg.START.ordinal()] = corruptUnexpeted;
-    transition[State.WAITDUPLIKATELAST.ordinal()][Msg.STARTLAST.ordinal()] = repeatAckLastStart;
-    transition[State.WAITDUPLIKATELAST.ordinal()][Msg.OK0.ordinal()] = corruptUnexpeted;
-    transition[State.WAITDUPLIKATELAST.ordinal()][Msg.OK1.ordinal()] = corruptUnexpeted;
-    transition[State.WAITDUPLIKATELAST.ordinal()][Msg.OK0LAST.ordinal()] = repeatAckLast;
-    transition[State.WAITDUPLIKATELAST.ordinal()][Msg.OK1LAST.ordinal()] = repeatAckLast;
-    transition[State.WAITDUPLIKATELAST.ordinal()][Msg.CORRUPT.ordinal()] = corruptUnexpeted;
-    transition[State.WAITDUPLIKATELAST.ordinal()][Msg.DIFFERENTSENDER.ordinal()] = corruptUnexpeted;
+		transition[State.WAITDUPLIKATELAST.ordinal()][Msg.STARTLAST.ordinal()] = repeatAckLastStart;
+		transition[State.WAITDUPLIKATELAST.ordinal()][Msg.OK0.ordinal()] = corruptUnexpeted;
+		transition[State.WAITDUPLIKATELAST.ordinal()][Msg.OK1.ordinal()] = corruptUnexpeted;
+		transition[State.WAITDUPLIKATELAST.ordinal()][Msg.OK0LAST.ordinal()] = repeatAckLast;
+		transition[State.WAITDUPLIKATELAST.ordinal()][Msg.OK1LAST.ordinal()] = repeatAckLast;
+		transition[State.WAITDUPLIKATELAST.ordinal()][Msg.CORRUPT.ordinal()] = corruptUnexpeted;
+		transition[State.WAITDUPLIKATELAST.ordinal()][Msg.DIFFERENTSENDER.ordinal()] = corruptUnexpeted;
 	}
 	
+	/**
+	 * Runs a timer that ensure that if the acknowledgement of the last package was not received correctly by the file sender, that the
+	 * sender has the possibility to retransmit the last package an can get a new acknowledgement.
+	 */
 	private Runnable lastDuplicateTimer = new Runnable() {
-    @Override
-    public void run() {
-      if (bytesCurrentTransmition == 0)
-        System.out.println("No data transmitted.");
-      else {
-        double transmitionDuration = (new Date().getTime() - lastTransmitionStart.getTime()) / 1000.0;
-        double rate = bytesCurrentTransmition / 1048576.0 / transmitionDuration;
-        System.out.printf("File transmitted. %d Bytes in %f sec = %f MB/s\r\n", bytesCurrentTransmition, transmitionDuration, rate);
-      }
-      bytesCurrentTransmition = 0;
-      lastTransmitionStart = null;
-      
-      boolean interrupted = true;
-      while (interrupted) {
-        interrupted = false;
-        try {
-          Thread.sleep(WAITTIMELASTDUPPLICATE);
-        } catch (InterruptedException e) {
-          interrupted = true;
-        }
-      }
-      closeConnection();
-      currentState = State.WAITNEXTFILE;
-    }
-    
-  };
+	    @Override
+	    public void run() {
+	      if (bytesCurrentTransmition == 0)
+	        System.out.println("No data transmitted.");
+	      else {
+	        double transmitionDuration = (new Date().getTime() - lastTransmitionStart.getTime()) / 1000.0;
+	        double rate = bytesCurrentTransmition / 1048576.0 / transmitionDuration;
+	        System.out.printf("File transmitted. %d Bytes in %f sec = %f MB/s\r\n", bytesCurrentTransmition, transmitionDuration, rate);
+	      }
+	      bytesCurrentTransmition = 0;
+	      lastTransmitionStart = null;
+	      
+	      boolean interrupted = true;
+	      while (interrupted) {
+	        interrupted = false;
+	        try {
+	          Thread.sleep(WAITTIMELASTDUPPLICATE);
+	        } catch (InterruptedException e) {
+	          interrupted = true;
+	        }
+	      }
+	      closeConnection();
+	      currentState = State.WAITNEXTFILE;
+	    }
+    };
 
+    /**
+     * Decides what to do with a received package.
+     * @param receivedPacket DatagramPacket received
+     * @throws Exception
+     */
 	public void processMsg(DatagramPacket receivedPacket) throws Exception {
 		Package udpDataPackage = new Package(receivedPacket);
 		Transition trans;
@@ -128,6 +142,9 @@ public class FinateAutomaton {
 		currentState = trans.execute(receivedPacket);
 	}
 
+	/**
+	 * Executed if the begin of a new file is received correctly.
+	 */
 	Transition beginCommunication = (receivedPacket) -> {
 		Package innerPackage = new Package(receivedPacket);
 
@@ -138,44 +155,59 @@ public class FinateAutomaton {
 		return State.WAIT1;
 	};
 
+	/**
+	 * Executed if the begin of a new file is received correctly that only contains of one package.
+	 */
 	Transition beginEndCommunication = (receivedPacket) -> {
 		Package innerPackage = new Package(receivedPacket);
 
 		initNewConnection(receivedPacket);
 		writeDataToFile(innerPackage.getContent());
 		sendAckNak(receivedPacket, true);
-    lastReceivedPackage = innerPackage;
+		lastReceivedPackage = innerPackage;
 		currentLastDuplicateTimer = new Thread(lastDuplicateTimer);
 		currentLastDuplicateTimer.start();
 		return State.WAITDUPLIKATELAST;
 	};
 
+	/**
+	 * Executed if the received package was corrupt.
+	 */
 	Transition corruptUnexpeted = (receivedPacket) -> {
 		sendAckNak(receivedPacket, false);
 		return currentState;
 	};
 
+	/**
+	 * Executed if a package with sequencenumber 0 was received correctly and sequencenumber 0 was expected.
+	 */
 	Transition proccedOk0 = (receivedPacket) -> {
 		Package innerPackage = new Package(receivedPacket);
 		writeDataToFile(innerPackage.getContent());
 		sendAckNak(receivedPacket, true);
-    lastReceivedPackage = innerPackage;
+		lastReceivedPackage = innerPackage;
 		return State.WAIT1;
 	};
 
+	/**
+	 * Executed if a package was received correctly but another sequencenumber was expected.
+	 */
 	Transition repeatAck = (receivedPacket) -> {
 		sendAckNak(receivedPacket, true);
-    lastReceivedPackage = new Package(receivedPacket);
+		lastReceivedPackage = new Package(receivedPacket);
 		return currentState;
 	};
 
+	/**
+	 * Executed if a package was received correctly with the expected sequencenumber, which was the last of the file.
+	 */
 	Transition proccedOkLast = (receivedPacket) -> {
 		Package innerPackage = new Package(receivedPacket);
 		writeDataToFile(innerPackage.getContent());
 		sendAckNak(receivedPacket, true);
-    lastReceivedPackage = innerPackage;
-    currentLastDuplicateTimer = new Thread(lastDuplicateTimer);
-    currentLastDuplicateTimer.start();
+	    lastReceivedPackage = innerPackage;
+	    currentLastDuplicateTimer = new Thread(lastDuplicateTimer);
+	    currentLastDuplicateTimer.start();
 		return State.WAITDUPLIKATELAST;
 	};
 

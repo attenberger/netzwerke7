@@ -3,7 +3,7 @@ package edu.hm.cs.netzwerke1.aufgabe7.filereceiver;
 import java.net.DatagramPacket;
 import java.net.SocketException;
 
-import edu.hm.cs.netzwerke1.aufgabe7.unreliableChanel.*;
+import edu.hm.cs.netzwerke1.aufgabe7.unreliableChannel.*;
 
 public class FileReceiver {
 
@@ -13,20 +13,20 @@ public class FileReceiver {
   
   public static void main(String... args) {
 	FinateAutomaton automaton = new FinateAutomaton();
-    UnreliableChanel unreliableChanel = null;
+    UnreliableChannel unreliableChannel = null;
 	try {
-		unreliableChanel = new BaseChanel();
+		unreliableChannel = new BaseChannel();
 	} catch (SocketException e) {
 		System.out.println(e.getMessage());
 	}
-    unreliableChanel = new DuplicateChanel(unreliableChanel);
-    unreliableChanel = new LostChanel(unreliableChanel);
-    unreliableChanel = new BitErrorChanel(unreliableChanel);
+    unreliableChannel = new DuplicateChannel(unreliableChannel);
+    unreliableChannel = new LostChannel(unreliableChannel);
+    unreliableChannel = new BitErrorChannel(unreliableChannel);
     
     DatagramPacket lastReceived = null;
 	while (true) {
 	  try {
-		lastReceived = unreliableChanel.receive();
+		lastReceived = unreliableChannel.receive();
 		automaton.processMsg(lastReceived);
 	  } catch (Exception e) {
 		System.out.println(e.getMessage());
