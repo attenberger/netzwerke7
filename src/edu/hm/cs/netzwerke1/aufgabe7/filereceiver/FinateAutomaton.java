@@ -211,6 +211,10 @@ public class FinateAutomaton {
 		return State.WAITDUPLIKATELAST;
 	};
 
+	/**
+	 * Executed if a package with sequencenumber 1 was correctly received, not the last package of the file
+	 * and sequencenumber 1 was expected.
+	 */
 	Transition proccedOk1 = (receivedPacket) -> {
 		Package innerPackage = new Package(receivedPacket);
 		writeDataToFile(innerPackage.getContent());
@@ -219,6 +223,9 @@ public class FinateAutomaton {
 		return State.WAIT0;
 	};
 
+	/**
+	 * Executed if the last package of the file was already received and was now received again correctly.
+	 */
 	Transition repeatAckLast = (receivedPacket) -> {
 	  sendAckNak(receivedPacket, true);
 	  currentLastDuplicateTimer.interrupt();
@@ -226,6 +233,9 @@ public class FinateAutomaton {
 	  return currentState;
 	};
 	
+	/**
+	 * Executed if a file consisting of only one package is received again correctly.
+	 */
 	Transition repeatAckLastStart = (receivedPacket) -> {
     Package innerPackage = new Package(receivedPacket);
     if (innerPackage.equals(lastReceivedPackage)) {
@@ -240,6 +250,11 @@ public class FinateAutomaton {
   };
 
 
+  /**
+   * Sets the parameters for the new file and opens a stream to write the file to the filesystem.
+   * @param receivedPacket First package of the file
+   * @throws IOException thrown if an error occurs while open the fileoutputstream to write the file to the filesystem.
+   */
 	private void initNewConnection(DatagramPacket receivedPacket) throws IOException {
 		currentSender = receivedPacket.getSocketAddress();
 		lastTransmitionStart = new Date();
@@ -260,6 +275,9 @@ public class FinateAutomaton {
 		}
 	}
 
+	/**
+	 * Closes the fileoutputstream to write file to the filesystem.
+	 */
 	private void closeConnection() {
 		try {
 			writer.close();
@@ -269,6 +287,11 @@ public class FinateAutomaton {
 		}
 	}
 
+	/**
+	 * Writes data in the current file in the filesystem.
+	 * @param content data to write
+	 * @throws IOException thrown if an error occurs while writing the data
+	 */
 	private void writeDataToFile(byte[] content) throws IOException {
 		bytesCurrentTransmition += content.length;
 		try {
@@ -283,6 +306,12 @@ public class FinateAutomaton {
 		}
 	}
 
+	/**
+	 * Sends a ACK or NAK to the current sender of the file, to confirm a received package.
+	 * @param receivedPacket received package
+	 * @param ack true if the package was currect received, else false
+	 * @throws IOException thrown if an error occurs while sending the ACK / NAK
+	 */
 	private void sendAckNak(DatagramPacket receivedPacket, boolean ack) throws IOException {
 		Package innerPackage = new Package(receivedPacket);
 		Package ackPackage = new Package(ack, innerPackage.getSequencenumber());
