@@ -12,6 +12,10 @@ import java.net.SocketTimeoutException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+/**
+ * File Sender sending files over the network using a custom made reliable channel other than TCP using UDP.
+ * @author Benjamin Eder
+ */
 public class FileSender {
 
 	private File file;
